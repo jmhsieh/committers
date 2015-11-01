@@ -46,11 +46,47 @@ public class HBaseCommitterFactory {
     Admin a = c.getAdmin();
     if (!a.tableExists(name)) {
       HTableDescriptor htd = new HTableDescriptor(name);
-            htd.addFamily(new HColumnDescriptor(DATA_CF));
+      htd.addFamily(new HColumnDescriptor(DATA_CF));
       htd.addFamily(new HColumnDescriptor(JIRA_CF));
       a.createTable(htd);
     }
   }
+
+  // Write operations
+
+  public void writeCommitter(Committer c) throws IOException {
+    if (c == null) {
+      return;
+    }
+    t.put(fromCommitter(c));
+  }
+
+  public void writeCommitters(Collection<Committer> cs) throws IOException {
+    List<Put> l = new ArrayList(cs.size());
+    for (Committer c : cs) {
+      l.add(fromCommitter(c));
+    }
+    t.put(l);
+  }
+
+  Put fromCommitter(Committer c) {
+    assert c != null;
+
+    Put p = new Put(Bytes.toBytes(c.getName()));
+    if (c.getBeard() != null)
+      p.addColumn(DATA_CF, BEARD_KEY, Bytes.toBytes(c.getBeard()));
+    if (c.getHair() != null)
+      p.addColumn(DATA_CF, HAIR_KEY, Bytes.toBytes(c.getHair()));
+
+    for (Map.Entry<String, String> jira : c.getJiras().entrySet()) {
+      byte[] jKey = Bytes.toBytes(jira.getKey());
+      byte[] jDesc = Bytes.toBytes(jira.getValue());
+      p.addColumn(JIRA_CF, jKey, jDesc);
+    }
+    return p;
+  }
+
+  // read operations
 
   public Committer readCommitter(String name) throws IOException {
     Get g = new Get(Bytes.toBytes(name));
@@ -116,39 +152,6 @@ public class HBaseCommitterFactory {
         };
       }
     };
-  }
-
-  Put fromCommitter(Committer c) {
-    assert c != null;
-
-
-    Put p = new Put(Bytes.toBytes(c.getName()));
-    if (c.getBeard() != null)
-        p.addColumn(DATA_CF, BEARD_KEY, Bytes.toBytes(c.getBeard()));
-    if (c.getHair() != null)
-        p.addColumn(DATA_CF, HAIR_KEY, Bytes.toBytes(c.getHair()));
-
-    for (Map.Entry<String, String> jira : c.getJiras().entrySet()) {
-      byte[] jKey = Bytes.toBytes(jira.getKey());
-      byte[] jDesc = Bytes.toBytes(jira.getValue());
-      p.addColumn(JIRA_CF, jKey, jDesc);
-    }
-    return p;
-  }
-
-  public void writeCommitter(Committer c) throws IOException {
-    if (c == null) {
-      return;
-    }
-    t.put(fromCommitter(c));
-  }
-
-  public void writeCommitters(Collection<Committer> cs) throws IOException {
-    List<Put> l = new ArrayList(cs.size());
-    for (Committer c : cs) {
-      l.add(fromCommitter(c));
-    }
-    t.put(l);
   }
 
 }
